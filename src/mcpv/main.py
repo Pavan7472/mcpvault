@@ -9,13 +9,15 @@ app = typer.Typer()
 def install(
     force: bool = typer.Option(False, "--force", "-f", help="Force install even if only 1 MCP exists.")
 ):
-    """Installs mcpv as the primary gateway in Antigravity."""
+    """Installs mcpv and sets the CURRENT directory as the target."""
     print("🛡️  Installing MCP Vault...")
-    # force 옵션을 manager에게 전달
     manager.install(force=force)
-    
-    # 설치가 취소되었을 수도 있으므로 메시지는 vault.py에서 출력된 내용을 참고
-    print("👉 Check the output above.")
+
+@app.command()
+def link():
+    """[Safe Switch] Updates the Vault to target the CURRENT directory."""
+    print("🔗 Linking Vault to current directory...")
+    manager.link()
 
 @app.command()
 def start():

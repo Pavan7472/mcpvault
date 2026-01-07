@@ -40,7 +40,7 @@ Have you ever felt this while using AI Agents (Antigravity, Cursor)?
 | Feature | 😫 Without `mcpv` (Before) | ⚡ With `mcpv` (After) | 📈 Effect |
 | :--- | :--- | :--- | :--- |
 | **Speed** | No GPU, Laggy UI | **Forced GPU Acceleration, Smooth** | **100x** Perceived Speed |
-| **Loading** | Wait 10s+ every time | **0.1s Instant Start** (Lazy Load) | **Zero** Latency |
+| **Loading** | Wait 60s+ every time | **0.1s Instant Start** (Lazy Load) | **Zero** Latency |
 | **Cost** | Resend full code every time | **Auto-block Duplicates** (Smart Cache) | **90%** Savings |
 
 <br>
@@ -176,6 +176,7 @@ Launch **`Antigravity Boost (mcpv)`** from your Desktop.
 | `mcpv install` | Installs the gateway and creates the Desktop shortcut. |
 | `mcpv install --force` | Forces installation even if only 1 MCP server exists. |
 | `mcpv start` | Starts the server (Used internally by Antigravity). |
+| `mcpv link` | Updates the Vault to target the current directory as the project root. |
 | `mcpv --help` | Show help message. |
 
 ---

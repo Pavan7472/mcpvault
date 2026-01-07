@@ -177,6 +177,18 @@ uv pip install .
 
 ---
 
+## 🛠️ 指令 (Commands)
+
+| 指令 | 说明 |
+| --- | --- |
+| `mcpv install` | 安装网关并创建桌面快捷方式。 |
+| `mcpv install --force` | 即使只有一个 MCP 服务器也强制安装。 |
+| `mcpv link` | 将**当前文件夹**设置为 Antigravity 的项目根目录。（用于切换项目） |
+| `mcpv start` | 启动服务器（Antigravity 内部使用）。 |
+| `mcpv --help` | 显示帮助信息。 |
+
+---
+
 ☕ **Support**  
 如果这个项目帮您节省了 Token 和时间，请我喝杯咖啡吧！  
 

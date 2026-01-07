@@ -109,71 +109,96 @@ Verified MCP server configuration used by the developer. It creates the best syn
 
 ---
 
-# 🚀 Installation & Running Guide (Windows / uv)
+## 📦 Installation
 
-We recommend installing and running this project in an **independent virtual environment (.venv)** using `uv`.
+Choose the method that fits your needs.
 
-> ✅ Execute the commands below in your **PowerShell** at the **project root folder** (where this README is located).
+### Option A: The "It Just Works" Method (Recommended for most users)
+If you have Python installed and added to PATH.
+
+```powershell
+# 1. Install from PyPI
+pip install mcpv
+
+# 2. Setup Gateway & Booster
+mcpv install
+
+# 3. Done! 
+# Look for the "Antigravity Boost (mcpv)" shortcut on your Desktop.
+
+```
 
 ---
 
-## 0. Prerequisites
-- Windows 10/11
-- PowerShell
-- `uv` installed
-  - Check installation: `uv --version`
+### Option B: The "Rock-Solid" Method (Using `uv`)
 
----
+Use this method if your Python environment is messy or you want complete isolation.
 
-## 1. Clean Up Existing Processes (Optional)
-To avoid conflicts, stop any existing `mcpv` or Python processes if you are reinstalling.
-
-> ⚠️ Stopping `python` processes might affect other tasks. Run with caution.
+#### 1. Clean up existing processes
 
 ```powershell
 Stop-Process -Name "mcpv" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "python" -Force -ErrorAction SilentlyContinue
+
 ```
 
----
-
-## 2. Create Virtual Environment & Install Package
-Use `uv` to create a clean environment isolated from the system Python.
+#### 2. Create Virtual Environment & Install
 
 ```powershell
-# Install uv (if not already installed)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Install uv (if needed)
+powershell -ExecutionPolicy ByPass -c "irm [https://astral.sh/uv/install.ps1](https://astral.sh/uv/install.ps1) | iex"
 
-# Create virtual environment (.venv)
+# Create .venv and install mcpv
 uv venv
+uv pip install mcpv
 
-# Install mcpv package in the virtual environment
-uv pip install .
 ```
 
----
+#### 3. Register & Lock
 
-## 3. Register Antigravity Settings (Critical)
-Run the installation command using the Python from the created virtual environment.
+This registers the **isolated virtual environment** into Antigravity's config.
 
 ```powershell
-# Register mcpv to Antigravity using the internal .venv Python.
 .venv\Scripts\python -m mcpv install --force
+
 ```
+
+#### 4. Run
+
+Launch **`Antigravity Boost (mcpv)`** from your Desktop.
 
 ---
 
-## 4. Run
-Double-click the **`Antigravity Boost (mcpv)`** shortcut created on your desktop.
+## 🛠️ Commands
+
+| Command | Description |
+| --- | --- |
+| `mcpv install` | Installs the gateway and creates the Desktop shortcut. |
+| `mcpv install --force` | Forces installation even if only 1 MCP server exists. |
+| `mcpv start` | Starts the server (Used internally by Antigravity). |
+| `mcpv --help` | Show help message. |
 
 ---
 
-## (Optional) Verify Installation
-Check if the `mcpv` module loads correctly within the `.venv`.
+## ❓ Troubleshooting
 
-```powershell
-.venv\Scripts\python -m mcpv --help
-```
+#### Q. "File access denied" or "Failed to remove file" during update?
+
+This means `mcpv.exe` or `Antigravity` is still running.
+
+1. Close Antigravity.
+2. Run: `Stop-Process -Name "mcpv" -Force` in PowerShell.
+3. Try installing again.
+
+#### Q. I installed it, but I don't see the Shortcut.
+
+The shortcut is created on your **Desktop**. If not, check the installation logs. You can create it manually by running `mcpv install` again.
+
+---
+
+## 📜 License
+
+MIT License. Feel free to fork and modify!
 
 ---
 

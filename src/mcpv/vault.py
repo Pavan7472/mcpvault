@@ -22,6 +22,7 @@ HOME_DIR = Path.home()
 CONFIG_DIR = HOME_DIR / ".gemini" / "antigravity"
 CONFIG_FILE = CONFIG_DIR / "mcp_config.json"
 BACKUP_FILE = CONFIG_DIR / "mcp_config.original.json"
+ROOT_PATH_FILE = CONFIG_DIR / "root_path.txt"
 MY_SERVER_NAME = "mcpv-proxy"
 
 # 안티그래비티 경로
@@ -35,40 +36,12 @@ class VaultManager:
         self.sessions = {}
 
     def install(self, force: bool = False):
-        """1. MCP Config 하이재킹"""
+        """1. MCP Config 하이재킹 및 경로 고정"""
         success = self._hijack_config(force)
         if success:
             """2. 부스팅 스크립트 설치"""
             self._install_booster()
-            print("✨ Installation complete. Please restart Antigravity using the new Desktop Shortcut!")
-
-    def link(self):
-        """[New] 현재 폴더를 Vault의 작업 경로(CWD)로 강제 연결합니다."""
-        if not CONFIG_FILE.exists():
-             print("❌ Config file not found. Run 'mcpv install' first.", file=sys.stderr)
-             return
-
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f: config = json.load(f)
-        except Exception as e:
-            print(f"❌ Config file is corrupted: {e}", file=sys.stderr)
-            return
-
-        servers = config.get("mcpServers", {})
-        if MY_SERVER_NAME not in servers:
-             print("❌ mcpv-proxy not found in config. Run 'mcpv install' first.", file=sys.stderr)
-             return
-        
-        # [핵심] CWD를 현재 명령어를 실행한 위치로 업데이트
-        current_cwd = os.getcwd()
-        servers[MY_SERVER_NAME]["cwd"] = current_cwd
-        
-        # 저장
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-             json.dump(config, f, indent=2)
-             
-        print(f"🔗 Vault target linked to: {current_cwd}", file=sys.stderr)
-        print("👉 Please restart Antigravity to apply changes.", file=sys.stderr)
+            print("✨ Installation & Path Lock Complete!")
 
     def _hijack_config(self, force: bool) -> bool:
         if not CONFIG_DIR.exists():
@@ -88,36 +61,45 @@ class VaultManager:
             config = {"mcpServers": {}}
 
         servers = config.get("mcpServers", {})
-        
-        if len(servers) == 1 and MY_SERVER_NAME in servers:
-            # 이미 설치되어 있어도, install 명령 시 CWD는 갱신해주는 것이 사용자 경험에 좋음
-            print("✅ mcpv middleware is active. Updating CWD...", file=sys.stderr)
-            servers[MY_SERVER_NAME]["cwd"] = os.getcwd()
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=2)
-            return True
+        other_servers = {k: v for k, v in servers.items() if k != MY_SERVER_NAME}
 
-        if len(servers) == 1 and not force:
-            print(f"⚠️  Only 1 MCP server found: {list(servers.keys())}", file=sys.stderr)
+        if other_servers and not force:
+            print(f"⚠️  Existing MCP servers found: {list(other_servers.keys())}", file=sys.stderr)
             print("   Skipping installation. Use 'mcpv install --force' to override.", file=sys.stderr)
             return False
 
-        upstream = {k: v for k, v in servers.items() if k != MY_SERVER_NAME}
-        if upstream:
+        if other_servers:
             with open(BACKUP_FILE, "w", encoding="utf-8") as f:
-                json.dump({"mcpServers": upstream}, f, indent=2)
+                json.dump({"mcpServers": other_servers}, f, indent=2)
             print(f"📦 Backup created at: {BACKUP_FILE}", file=sys.stderr)
 
+        # [핵심] 현재 경로 저장
+        current_python = sys.executable
+        current_cwd = os.getcwd()
+        
+        print(f"🔧 Locking Project Root to: {current_cwd}")
+        
+        try:
+            with open(ROOT_PATH_FILE, "w", encoding="utf-8") as f:
+                f.write(current_cwd)
+            print(f"📍 Root path saved to {ROOT_PATH_FILE}", file=sys.stderr)
+        except Exception as e:
+            print(f"❌ Failed to save root path: {e}", file=sys.stderr)
+
         my_config = {
-            "command": "mcpv",  # 전역 설치라면 PATH에 등록된 mcpv 사용
-            "args": ["start"],
-            "cwd": os.getcwd(), # 설치 시점의 경로
-            "env": {"PYTHONUNBUFFERED": "1"}
+            "command": current_python,
+            "args": ["-m", "mcpv", "start"],
+            "cwd": current_cwd,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTHONPATH": current_cwd
+            }
         }
         
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump({"mcpServers": {MY_SERVER_NAME: my_config}}, f, indent=2)
-        print("🔒 Vault locked. Config updated.", file=sys.stderr)
+            
+        print(f"🔒 Vault config updated.", file=sys.stderr)
         return True
 
     def _install_booster(self):
@@ -156,7 +138,6 @@ exit
         try:
             with open(vbs_file, "w", encoding="utf-8") as f: f.write(vbs_script)
             os.system(f"cscript //nologo {vbs_file}")
-            print(f"   ✨ Shortcut created on Desktop: {name}", file=sys.stderr)
         finally:
             if vbs_file.exists(): os.remove(vbs_file)
 
@@ -167,7 +148,28 @@ exit
         srv = config["mcpServers"].get(server_name)
         if not srv: raise ValueError(f"Server {server_name} not found.")
         
-        params = StdioServerParameters(command=srv["command"], args=srv.get("args", []), env=os.environ | srv.get("env", {}))
+        # [수정됨] 상류 서버 실행 시 CI=true 강제 주입
+        upstream_env = os.environ.copy()
+        upstream_env["CI"] = "true" 
+        upstream_env.update(srv.get("env", {}))
+
+        # [핵심 수정] Windows에서 npx 등의 명령어 위치 찾기 (npx -> npx.cmd)
+        cmd = srv["command"]
+        resolved_cmd = shutil.which(cmd)
+        
+        if not resolved_cmd and os.name == 'nt':
+            # .cmd 나 .exe를 붙여서 찾아봄
+            resolved_cmd = shutil.which(f"{cmd}.cmd") or shutil.which(f"{cmd}.exe")
+        
+        # 그래도 못 찾으면 원래 명령어 사용 (PATH에 있다고 가정)
+        final_cmd = resolved_cmd if resolved_cmd else cmd
+
+        params = StdioServerParameters(
+            command=final_cmd,
+            args=srv.get("args", []),
+            env=upstream_env
+        )
+        
         read, write = await self.stack.enter_async_context(stdio_client(params))
         session = await self.stack.enter_async_context(ClientSession(read, write))
         await session.initialize()

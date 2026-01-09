@@ -7,3 +7,5 @@ dist/
 env/
 .idea/
 .vscode/
+.env
+upload.ps1

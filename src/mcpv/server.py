@@ -7,16 +7,18 @@ from fastmcp import FastMCP
 from .valve import valve
 from .vault import manager
 
-# 1. 로깅 설정 (로그 파일 위치: ~/.gemini/antigravity/mcpv_debug.log)
-LOG_DIR = Path.home() / ".gemini" / "antigravity"
+# 1. 로깅 및 설정 폴더
+CONFIG_DIR = Path.home() / ".gemini" / "antigravity"
+LOG_DIR = CONFIG_DIR
 try:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 except:
     pass
 
 LOG_FILE = LOG_DIR / "mcpv_debug.log"
+ROOT_PATH_FILE = CONFIG_DIR / "root_path.txt"
 
-# 기존 핸들러 제거 (중복 방지)
+# 기존 핸들러 제거
 root_logger = logging.getLogger()
 if root_logger.handlers:
     for handler in root_logger.handlers:
@@ -31,11 +33,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mcpv-server")
 
-# 2. 실행 위치 감지 및 로그
-ROOT_DIR = Path.cwd()
+# 2. 실행 위치 감지 및 [중요] CWD 변경
+if ROOT_PATH_FILE.exists():
+    try:
+        content = ROOT_PATH_FILE.read_text(encoding="utf-8").strip()
+        ROOT_DIR = Path(content).resolve()
+        source = "FILE(root_path.txt)"
+        
+        # [핵심 수정] 프로세스의 작업 디렉토리를 강제로 변경
+        os.chdir(ROOT_DIR)
+        logger.info(f"✅ Changed CWD to: {os.getcwd()}")
+        
+    except Exception as e:
+        ROOT_DIR = Path.cwd().resolve()
+        source = f"CWD(File Read Error: {e})"
+else:
+    ROOT_DIR = Path.cwd().resolve()
+    source = "CWD(File Not Found)"
+
 logger.info("="*40)
 logger.info(f"🚀 MCPV Server Started.")
-logger.info(f"📂 Current Working Directory (ROOT_DIR): {ROOT_DIR}")
+logger.info(f"📂 Project Root: {ROOT_DIR} (Source: {source})")
+logger.info(f"📂 Current Work Dir: {os.getcwd()}")
 logger.info("="*40)
 
 IGNORE_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build"}
@@ -45,19 +64,17 @@ mcp = FastMCP("mcpv", log_level="DEBUG")
 
 @mcp.tool()
 def get_initial_context(force: bool = False) -> str:
-    """[Smart Valve] Loads the codebase context via Repomix. Blocks redundant calls."""
+    """[Smart Valve] Loads the codebase context via Repomix."""
     logger.info(f"Function 'get_initial_context' called. force={force}")
     
-    # 1. 밸브 체크
     allowed, msg = valve.check(force)
     logger.info(f"Valve check result: allowed={allowed}")
     
     if not allowed:
-        logger.info("⛔ Request blocked by Smart Valve.")
         return msg
 
     try:
-        # 2. Repomix 명령어 준비
+        # CWD가 이미 변경되었으므로 명령어만 실행하면 됨
         cmd = [
             "npx", "-y", "repomix",
             "--style", "xml",
@@ -67,25 +84,22 @@ def get_initial_context(force: bool = False) -> str:
         ]
         
         logger.info(f"▶️ Executing command: {' '.join(cmd)}")
-        logger.info(f"   in Directory: {ROOT_DIR}")
+        logger.info(f"   in Directory: {os.getcwd()}") # ROOT_DIR과 동일해야 함
         
-        # 환경변수 설정 (CI=true로 설정하여 대화형 프롬프트 방지)
         env = os.environ.copy()
         env["CI"] = "true"
         
-        # 3. 실행 (Timeout 60초 설정)
         result = subprocess.run(
             cmd,
-            cwd=ROOT_DIR,
+            cwd=ROOT_DIR, # 명시적으로 한 번 더 지정
             capture_output=True,
             text=True,
             encoding="utf-8",
             shell=(os.name == 'nt'),
-            timeout=60,  # 60초 지나면 강제 종료
-            env=env
+            timeout=120,
+            env=env,
+            stdin=subprocess.DEVNULL 
         )
-        
-        logger.info(f"✅ Command finished. Return code: {result.returncode}")
         
         if result.returncode != 0:
             err_msg = f"Repomix Error (Code {result.returncode}): {result.stderr}"
@@ -98,18 +112,17 @@ def get_initial_context(force: bool = False) -> str:
         return f"=== Vault Context ===\n{result.stdout}\n=== End Vault ==="
         
     except subprocess.TimeoutExpired:
-        logger.error("⏰ Repomix timed out after 60 seconds.")
-        return "Error: Context fetching timed out (Repomix took too long). The project folder might be too large, or npx is hanging."
-        
+        logger.error("⏰ Repomix timed out.")
+        return "Error: Context fetching timed out."
     except Exception as e:
-        logger.exception("❌ Unexpected error in get_initial_context")
+        logger.exception("❌ Unexpected error")
         return f"Vault Error: {str(e)}"
 
 @mcp.tool()
 async def use_upstream_tool(server_name: str, tool_name: str, args: dict = {}) -> str:
     """Routes a command to a specific server in the vault."""
-    logger.info(f"Routing tool: {server_name} -> {tool_name}")
     try:
+        # upstream 서버들도 이제 변경된 CWD(프로젝트 루트)에서 실행됩니다.
         session = await manager.get_session(server_name)
         res = await session.call_tool(tool_name, args)
         return "\n".join([c.text for c in res.content if c.type == "text"])
@@ -119,10 +132,9 @@ async def use_upstream_tool(server_name: str, tool_name: str, args: dict = {}) -
 
 @mcp.tool()
 def list_directory(path: str = ".") -> str:
-    """Secure, Lazy file listing."""
     logger.debug(f"list_directory called: {path}")
     full = (ROOT_DIR / path).resolve()
-    if not str(full).startswith(str(ROOT_DIR)): return "⛔ Access Denied (Jailbreak attempt)"
+    if not str(full).startswith(str(ROOT_DIR)): return "⛔ Access Denied"
     if not full.exists(): return "Not found"
     
     out = []
@@ -133,18 +145,15 @@ def list_directory(path: str = ".") -> str:
                 if e.is_dir(): out.append(f"[DIR]  {e.name}/")
                 elif e.is_file() and Path(e.name).suffix in ALLOWED_EXTENSIONS: out.append(f"[FILE] {e.name}")
     except Exception as e:
-        logger.error(f"list_directory error: {e}")
         return str(e)
     return "\n".join(sorted(out)) if out else "Empty"
 
 @mcp.tool()
 def read_file(path: str) -> str:
-    """Secure file reader."""
     logger.debug(f"read_file called: {path}")
     full = (ROOT_DIR / path).resolve()
     if not str(full).startswith(str(ROOT_DIR)): return "⛔ Access Denied"
-    if full.suffix not in ALLOWED_EXTENSIONS: return f"⛔ File type {full.suffix} not allowed in Vault"
+    if full.suffix not in ALLOWED_EXTENSIONS: return f"⛔ File type {full.suffix} not allowed"
     try: return full.read_text(encoding="utf-8", errors="replace")
     except Exception as e:
-        logger.error(f"read_file error: {e}")
         return str(e)

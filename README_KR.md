@@ -13,7 +13,7 @@
 </div>
 
 <div align="right">
-  <a href="README.md">🇺🇸 English</a> | <a href="README_CN.md">🇨🇳 中文</a>
+  <a href="README.md">🇺🇸 English</a> | <a href="README_CN.md">🇨🇳 中文</a> | <a href="README_RU.md">🇷🇺 Русский</a>
 </div>
 
 <br>
@@ -53,18 +53,21 @@ AI 에이전트(Antigravity, Cursor)를 쓰다가 이런 경험 없으신가요?
 ### 1️⃣ Booster Injection (물리적 가속)
 **"명령어 한 줄로 하드웨어 봉인 해제"**
 - **GPU 강제 활성화**: 숨겨진 렌더링 가속 플래그(`--enable-gpu-rasterization`)를 주입합니다.
-- **권한 문제 해결**: 귀찮은 관리자 권한 요구(Error 740)를 `RunAsInvoker`로 우회합니다.
+- **권한 문제 해결**: 관리자 권한을 해제하여 드래그 앤 드롭 및 UI 버그를 수정하고, `RunAsInvoker`로 성가신 권한 요청(Error 740)을 우회합니다.
 - **좀비 프로세스 킬**: 포트를 점유하는 유령 프로세스를 자동으로 청소합니다.
 
 ### 2️⃣ Smart Valve (비용 방어)
 **"알아서 아껴주는 똑똑한 지갑 지킴이"**
 - 에이전트가 습관적으로 요청하는 거대한 문맥 데이터(`repomix`)를 감지합니다.
-- **첫 번째만 전송**, 두 번째부터는 **"이미 가지고 있음"** 이라는 10 토큰짜리 메시지로 퉁칩니다.
+- **첫 번째 요청: 허용** (전체 문맥 제공).
+- **이후 요청: 차단** (10 토큰짜리 **"Already cached"** 메시지 반환).
 - 실수로 인한 토큰 폭탄을 원천 봉쇄합니다.
 
 ### 3️⃣ Gateway Hijacking (안전한 금고)
 **"복잡한 설정은 이제 그만"**
+- **Zero-Latency Startup**: 에이전트가 실제로 요청할 때만 디렉토리를 스캔합니다. 대규모 레포지토리에서도 타임아웃이 발생하지 않습니다.
 - 기존의 복잡한 MCP 설정을 안전한 금고(Vault)로 자동 이전합니다.
+- 원본 설정은 `mcp_config.original.json`에 안전하게 백업됩니다.
 - 에이전트는 아무것도 모른 채 `mcpv`와 대화하지만, 모든 도구는 완벽하게 작동합니다.
 
 <br>
@@ -104,103 +107,3 @@ AI 에이전트(Antigravity, Cursor)를 쓰다가 이런 경험 없으신가요?
     }
   }
 }
-```
-
-<br>
-
----
-
-# 🚀 설치 및 실행 가이드 (Windows / uv 기준)
-
-이 프로젝트는 `uv`를 사용하여 **독립적인 가상환경(.venv)** 에서 설치/실행하는 것을 권장합니다.
-
-> ✅ 아래 명령은 **프로젝트 루트 폴더(README가 있는 위치)** 에서 PowerShell로 실행하세요.
-
----
-
-## 0. 준비물
-- Windows 10/11
-- PowerShell
-- `uv` 설치됨
-  - 설치 확인: `uv --version`
-
----
-
-## 1. 기존 프로세스 정리 (재설치 시)
-기존에 실행 중인 프로세스가 있다면 충돌 방지를 위해 종료합니다.
-
-> ⚠️ `python` 프로세스 종료는 다른 작업에도 영향을 줄 수 있으니, 필요할 때만 실행하세요.
-
-```powershell
-Stop-Process -Name "mcpv" -Force -ErrorAction SilentlyContinue
-Stop-Process -Name "python" -Force -ErrorAction SilentlyContinue
-```
-
----
-
-## 2. 가상환경 생성 및 패키지 설치
-`uv`를 이용해 시스템 파이썬과 분리된 깨끗한 환경을 만듭니다.
-
-```powershell
-# uv 설치
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# 가상환경(.venv) 생성
-uv venv
-
-# 가상환경에 mcpv 패키지 설치
-uv pip install .
-```
-
----
-
-## 3. 안티그래비티 설정 등록 (핵심)
-생성한 가상환경의 Python을 사용하여 설치 명령을 실행합니다.
-즉, **이 가상환경을 사용하여 설치를 진행합니다.**
-
-```powershell
-# .venv 환경 내의 라이브러리를 사용하여 mcpv를 안티그래비티에 등록합니다.
-.venv\Scripts\python -m mcpv install --force
-```
-
----
-
-## 4. 실행
-바탕화면에 생성된 **`Antigravity Boost (mcpv)`** 바로가기를 더블 클릭하여 실행하세요.
-
----
-
-## (선택) 정상 설치 확인
-아래 명령으로 `.venv` 내부에서 `mcpv` 모듈이 정상적으로 로드되는지 확인할 수 있습니다.
-
-```powershell
-.venv\Scripts\python -m mcpv --help
-```
-
----
-
-## 🛠️ 명령어 (Commands)
-
-| 명령어 | 설명 |
-| --- | --- |
-| `mcpv install` | 게이트웨이를 설치하고 바탕화면 바로가기를 생성합니다. |
-| `mcpv install --force` | 기존 MCP 서버가 1개여도 강제로 설치를 진행합니다. |
-| `mcpv link` | **현재 폴더**를 안티그래비티가 바라보는 프로젝트 루트로 설정합니다. (프로젝트 이동 시 사용) |
-| `mcpv start` | 서버를 시작합니다 (안티그래비티 내부 사용). |
-| `mcpv --help` | 도움말을 표시합니다. |
-
----
-
-☕ **Support**  
-이 프로젝트가 토큰비와 시간을 아끼는 데 도움이 되었다면, 커피 한 잔 선물해 주세요!  
-
-[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="180" />](https://www.buymeacoffee.com/mcpv)
-
-<br>
-
----
-
-<div align="center">
-  <b>⚡ Charged by MCP Vault</b><br>
-  <i>Developed for High-Performance AI Agent Operations</i>
-</div>

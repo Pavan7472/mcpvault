@@ -13,7 +13,7 @@
 </div>
 
 <div align="right">
-  <a href="README.md">🇺🇸 English</a> | <a href="README_KR.md">🇰🇷 한국어</a>
+  <a href="README.md">🇺🇸 English</a> | <a href="README_KR.md">🇰🇷 한국어</a> | <a href="README_RU.md">🇷🇺 Русский</a>
 </div>
 
 <br>
@@ -52,18 +52,21 @@
 ### 1️⃣ Booster Injection (物理加速)
 **"一行命令解锁硬件限制"**
 - **强制激活 GPU**: 注入隐藏的渲染加速标志 (`--enable-gpu-rasterization`)。
-- **绕过权限问题**: 使用 `RunAsInvoker` 绕过烦人的管理员权限请求 (Error 740)。
+- **绕过权限问题**: 放弃管理员权限以修复拖放和 UI 错误，并使用 `RunAsInvoker` 绕过烦人的管理员权限请求 (Error 740)。
 - **僵尸进程杀手**: 自动清理占用端口的幽灵进程。
 
 ### 2️⃣ Smart Valve (成本防御)
 **"为你省钱的智能钱包卫士"**
 - 检测代理习惯性请求的巨大上下文数据 (`repomix`)。
-- **只发送第一次**，从第二次开始仅回复 10 Token 的 **"已缓存 (Already cached)"** 消息。
+- **首次请求：允许**（提供完整上下文）。
+- **后续请求：拦截**（仅回复 10 Token 的 **“已缓存”** 消息）。
 - 物理阻断意外的 Token 炸弹。
 
 ### 3️⃣ Gateway Hijacking (安全金库)
 **"不再为复杂的配置烦恼"**
+- **零延迟启动**：仅在代理实际请求时扫描目录。大代码库也不会超时。
 - 自动将现有的复杂 MCP 设置迁移到安全的金库 (Vault)。
+- 原始配置安全备份至 `mcp_config.original.json`。
 - 代理只与 `mcpv` 对话，但所有工具在后台都能完美运行。
 
 <br>
@@ -103,102 +106,3 @@
     }
   }
 }
-```
-
-<br>
-
----
-
-# 🚀 安装与运行指南 (Windows / 基于 uv)
-
-建议使用 `uv` 在 **独立的虚拟环境 (.venv)** 中安装和运行本项目。
-
-> ✅ 请在 **项目根目录**（此 README 所在位置）使用 **PowerShell** 执行以下操作。
-
----
-
-## 0. 准备工作
-- Windows 10/11
-- PowerShell
-- 已安装 `uv`
-  - 检查安装：`uv --version`
-
----
-
-## 1. 清理现有进程（可选）
-如果是重新安装，请先停止任何正在运行的 `mcpv` 或 Python 进程以避免冲突。
-
-> ⚠️ 停止 `python` 进程可能会影响其他正在进行的任务。请谨慎操作。
-
-```powershell
-Stop-Process -Name "mcpv" -Force -ErrorAction SilentlyContinue
-Stop-Process -Name "python" -Force -ErrorAction SilentlyContinue
-```
-
----
-
-## 2. 创建虚拟环境并安装包
-使用 `uv` 创建一个与系统 Python 隔离的干净环境。
-
-```powershell
-# 安装 uv (如果尚未安装)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# 创建虚拟环境 (.venv)
-uv venv
-
-# 在虚拟环境中安装 mcpv 包
-uv pip install .
-```
-
----
-
-## 3. 注册 Antigravity 设置（核心步骤）
-使用生成的虚拟环境中的 Python 来执行安装命令。
-
-```powershell
-# 使用 .venv 环境内的 Python 将 mcpv 注册到 Antigravity。
-.venv\Scripts\python -m mcpv install --force
-```
-
----
-
-## 4. 运行
-双击桌面上生成的 **`Antigravity Boost (mcpv)`** 快捷方式即可运行。
-
----
-
-## (可选) 验证安装
-检查 `mcpv` 模块是否在 `.venv` 中正常加载。
-
-```powershell
-.venv\Scripts\python -m mcpv --help
-```
-
----
-
-## 🛠️ 指令 (Commands)
-
-| 指令 | 说明 |
-| --- | --- |
-| `mcpv install` | 安装网关并创建桌面快捷方式。 |
-| `mcpv install --force` | 即使只有一个 MCP 服务器也强制安装。 |
-| `mcpv link` | 将**当前文件夹**设置为 Antigravity 的项目根目录。（用于切换项目） |
-| `mcpv start` | 启动服务器（Antigravity 内部使用）。 |
-| `mcpv --help` | 显示帮助信息。 |
-
----
-
-☕ **Support**  
-如果这个项目帮您节省了 Token 和时间，请我喝杯咖啡吧！  
-
-[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="180" />](https://www.google.com/url?sa=E&source=gmail&q=https://www.buymeacoffee.com/mcpv)
-
-<br>
-
----
-
-<div align="center">
-  <b>⚡ Charged by MCP Vault</b><br>
-  <i>Developed for High-Performance AI Agent Operations</i>
-</div>

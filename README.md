@@ -13,7 +13,7 @@
 </div>
 
 <div align="right">
-  <a href="README_KR.md">🇰🇷 한국어</a> | <a href="README_CN.md">🇨🇳 中文</a>
+  <a href="README_KR.md">🇰🇷 한국어</a> | <a href="README_CN.md">🇨🇳 中文</a> | <a href="README_RU.md">🇷🇺 Русский</a>
 </div>
 
 <br>
@@ -52,18 +52,21 @@ Have you ever felt this while using AI Agents (Antigravity, Cursor)?
 ### 1️⃣ Booster Injection (Physical Acceleration)
 **"Unlock hardware limits with one line"**
 - **Forced GPU Activation**: Injects hidden rendering acceleration flags (`--enable-gpu-rasterization`).
-- **Permission Bypass**: Bypasses annoying admin permission requests (Error 740) using `RunAsInvoker`.
+- **Permission Bypass**: Drops Admin rights to fix drag-and-drop & UI bugs, and bypasses permission requests (Error 740) using `RunAsInvoker`.
 - **Zombie Process Killer**: Automatically cleans up ghost processes occupying ports.
 
 ### 2️⃣ Smart Valve (Cost Defense)
 **"Smart wallet protector that saves for you"**
 - Detects the massive context data (`repomix`) that agents habitually request.
-- **Sends only the first time**, and replies with a 10-token **"Already cached"** message from the second time onwards.
+- **First request: Allowed** (Full context provided).
+- **Subsequent requests: Blocked** with a 10-token **"Already cached"** message.
 - Physically blocks accidental token bombs.
 
 ### 3️⃣ Gateway Hijacking (Secure Vault)
 **"Stop struggling with complex configs"**
+- **Zero-Latency Startup**: Only scans directories when the agent actually requests them. No timeouts on large repos.
 - Automatically migrates existing complex MCP settings to a secure Vault.
+- Original config is safely backed up to `mcp_config.original.json`.
 - The agent talks only to `mcpv`, but all tools work perfectly behind the scenes.
 
 <br>
@@ -103,116 +106,3 @@ Verified MCP server configuration used by the developer. It creates the best syn
     }
   }
 }
-```
-
-<br>
-
----
-
-## 📦 Installation
-
-Choose the method that fits your needs.
-
-### Option A: The "It Just Works" Method (Recommended for most users)
-If you have Python installed and added to PATH.
-
-```powershell
-# 1. Install from PyPI
-pip install mcpv
-
-# 2. Setup Gateway & Booster
-mcpv install
-
-# 3. Done! 
-# Look for the "Antigravity Boost (mcpv)" shortcut on your Desktop.
-
-```
-
----
-
-### Option B: The "Rock-Solid" Method (Using `uv`)
-
-Use this method if your Python environment is messy or you want complete isolation.
-
-#### 1. Clean up existing processes
-
-```powershell
-Stop-Process -Name "mcpv" -Force -ErrorAction SilentlyContinue
-Stop-Process -Name "python" -Force -ErrorAction SilentlyContinue
-
-```
-
-#### 2. Create Virtual Environment & Install
-
-```powershell
-# Install uv (if needed)
-powershell -ExecutionPolicy ByPass -c "irm [https://astral.sh/uv/install.ps1](https://astral.sh/uv/install.ps1) | iex"
-
-# Create .venv and install mcpv
-uv venv
-uv pip install mcpv
-
-```
-
-#### 3. Register & Lock
-
-This registers the **isolated virtual environment** into Antigravity's config.
-
-```powershell
-.venv\Scripts\python -m mcpv install --force
-
-```
-
-#### 4. Run
-
-Launch **`Antigravity Boost (mcpv)`** from your Desktop.
-
----
-
-## 🛠️ Commands
-
-| Command | Description |
-| --- | --- |
-| `mcpv install` | Installs the gateway and creates the Desktop shortcut. |
-| `mcpv install --force` | Forces installation even if only 1 MCP server exists. |
-| `mcpv start` | Starts the server (Used internally by Antigravity). |
-| `mcpv link` | Updates the Vault to target the current directory as the project root. |
-| `mcpv --help` | Show help message. |
-
----
-
-## ❓ Troubleshooting
-
-#### Q. "File access denied" or "Failed to remove file" during update?
-
-This means `mcpv.exe` or `Antigravity` is still running.
-
-1. Close Antigravity.
-2. Run: `Stop-Process -Name "mcpv" -Force` in PowerShell.
-3. Try installing again.
-
-#### Q. I installed it, but I don't see the Shortcut.
-
-The shortcut is created on your **Desktop**. If not, check the installation logs. You can create it manually by running `mcpv install` again.
-
----
-
-## 📜 License
-
-MIT License. Feel free to fork and modify!
-
----
-
-☕ **Support**  
-If this project helped you save tokens and time, consider buying me a coffee!  
-
-[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="180" />](https://www.buymeacoffee.com/mcpv)
-
-<br>
-
----
-
-<div align="center">
-  <b>⚡ Charged by MCP Vault</b><br>
-  <i>Developed for High-Performance AI Agent Operations</i>
-</div>

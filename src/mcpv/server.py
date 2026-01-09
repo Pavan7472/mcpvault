@@ -112,38 +112,76 @@ async def get_initial_context(force: bool = False) -> str:
     return "\n".join(manual)
 
 # === 🌟 [핵심 3] 통합 실행 도구 (Flattened Execution) ===
+# === 🌟 [업그레이드] 스마트 실행 도구 (Auto-Correction 탑재) ===
 @mcp.tool()
 async def run_tool(tool_name: str, args: dict = {}) -> str:
     """
-    Executes ANY tool from the list provided in get_initial_context.
-    You don't need to know which server ID it belongs to.
+    Executes ANY tool from the available list.
+    Smart Router: Automatically finds the correct server for the tool.
     """
-    # 레지스트리가 비어있으면(재시작 직후 등) 한 번 채움
+    # 1. 레지스트리 로드 (없으면 빌드)
     if not TOOL_REGISTRY:
         await _build_registry()
         
+    # 2. 정확한 매칭 (Happy Path)
     info = TOOL_REGISTRY.get(tool_name)
+    
+    # 3. [NEW] 매칭 실패 시: 에이전트 실수 교정 로직
     if not info:
-        # 혹시 에이전트가 툴 이름을 정확히 모를 때 유사 검색 (간단히)
-        candidates = [k for k in TOOL_REGISTRY.keys() if tool_name in k]
-        if candidates:
-            return f"❌ Tool '{tool_name}' not found. Did you mean: {', '.join(candidates)}?"
-        return f"❌ Tool '{tool_name}' not found in Registry. Please call get_initial_context first."
+        # A. 혹시 서버 이름을 도구 이름으로 착각했나? (예: context-7 -> context7)
+        # 툴 레지스트리에서 서버 목록 추출
+        known_servers = set(t['server'] for t in TOOL_REGISTRY.values())
+        
+        # 입력값과 서버명을 정규화(특수문자 제거, 소문자)해서 비교
+        normalized_input = tool_name.replace("-", "").replace("_", "").lower()
+        
+        target_server = None
+        for sv in known_servers:
+            if normalized_input == sv.replace("-", "").replace("_", "").lower():
+                target_server = sv
+                break
+        
+        if target_server:
+            # 해당 서버에 속한 진짜 도구들을 찾아서 제안
+            server_tools = [
+                f"'{name}' (Args: {i['args']})" 
+                for name, i in TOOL_REGISTRY.items() 
+                if i['server'] == target_server
+            ]
+            return (
+                f"🛑 Error: '{tool_name}' appears to be a SERVER name (or typo), not a TOOL name.\n"
+                f"The server '{target_server}' has the following tools:\n"
+                f"{chr(10).join(['- ' + t for t in server_tools])}\n\n"
+                f"👉 Please retry 'run_tool' with one of the tool names above."
+            )
 
+        # B. 단순히 도구 이름 오타인가? (유사도 검색)
+        candidates = [k for k in TOOL_REGISTRY.keys() if tool_name in k or k in tool_name]
+        if candidates:
+            return f"❌ Tool '{tool_name}' not found. Did you mean one of these?\n- " + "\n- ".join(candidates)
+            
+        return f"❌ Tool '{tool_name}' not found in Registry. Please call 'get_initial_context' to see the full menu."
+
+    # 4. 실행 로직 (기존과 동일)
     server_name = info['server']
     real_tool_name = info['real_name']
     
     try:
         session = await manager.get_session(server_name)
+        # 세션 연결 실패 시 재시도 로직이나 안내 메시지 등은 manager 내부 혹은 여기서 처리
+        if not session:
+            return f"❌ Failed to connect to server '{server_name}'."
+
         result = await session.call_tool(real_tool_name, args)
         
-        # 결과 텍스트 추출
         output = []
         if hasattr(result, 'content'):
             for c in result.content:
                 if c.type == "text": output.append(c.text)
                 else: output.append(f"[{c.type} content]")
-        return "\n".join(output) if output else "✅ Executed (No output)"
+        
+        final_res = "\n".join(output) if output else "✅ Executed (No output)"
+        return final_res
         
     except Exception as e:
         return f"❌ Execution Error ({server_name} -> {tool_name}): {e}"

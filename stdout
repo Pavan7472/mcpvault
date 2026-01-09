@@ -645,33 +645,78 @@ ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".md", ".json", ".txt", ".html", ".cs
 ⋮----
 mcp = FastMCP("mcpv", log_level="DEBUG")
 ⋮----
+async def _scan_upstream_tools() -> str
+⋮----
+report = ["=== 🛠️ AVAILABLE EXTERNAL TOOLS (Auto-Injected) ==="]
+⋮----
+config = json.load(f)
+⋮----
+servers = config.get("mcpServers", {})
+active_servers = [k for k, v in servers.items() if not v.get("disabled")]
+⋮----
+tasks = []
+⋮----
+sessions = await asyncio.gather(*tasks, return_exceptions=True)
+⋮----
+# 2. 도구 목록 조회
+# 타임아웃 5초 (너무 오래 걸리면 스킵)
+result = await asyncio.wait_for(session.list_tools(), timeout=5.0)
+⋮----
+# 인자 스키마 요약
+props = list(t.inputSchema.get("properties", {}).keys())
+args_str = ", ".join(props) if props else "None"
+⋮----
+# 설명이 너무 길면 첫 줄만
+desc = t.description.split('\n')[0][:100]
+⋮----
+report.append("") # 공백
+⋮----
 @mcp.tool()
-def get_initial_context(force: bool = False) -> str
+async def get_initial_context(force: bool = False) -> str
 ⋮----
-# CWD가 이미 변경되었으므로 명령어만 실행하면 됨
+# 1. 밸브 체크 (중복 실행 방지)
+⋮----
+# 2. [NEW] 모든 업스트림 서버 스캔 & 도구 명세 확보
+⋮----
+tools_info = await _scan_upstream_tools()
+⋮----
+# 3. Repomix 실행 (프로젝트 파일 구조)
+⋮----
 cmd = [
-⋮----
-logger.info(f"   in Directory: {os.getcwd()}") # ROOT_DIR과 동일해야 함
 ⋮----
 env = os.environ.copy()
 ⋮----
 result = subprocess.run(
 ⋮----
-err_msg = f"Repomix Error (Code {result.returncode}): {result.stderr}"
+repo_context = ""
 ⋮----
-output_len = len(result.stdout)
+repo_context = f"Repomix Error: {result.stderr}"
+⋮----
+repo_context = result.stdout
+⋮----
+# 4. 최종 컨텍스트 조립
+final_output = (
+⋮----
+output_len = len(final_output)
 ⋮----
 @mcp.tool()
 async def use_upstream_tool(server_name: str, tool_name: str, args: dict = {}) -> str
 ⋮----
 """Routes a command to a specific server in the vault."""
 ⋮----
-# upstream 서버들도 이제 변경된 CWD(프로젝트 루트)에서 실행됩니다.
 session = await manager.get_session(server_name)
+# 세션이 없으면(get_session 실패) 위에서 에러가 뜸
+⋮----
+# 도구 실행
 res = await session.call_tool(tool_name, args)
+⋮----
+# 결과 파싱
+output = []
 ⋮----
 @mcp.tool()
 def list_directory(path: str = ".") -> str
+⋮----
+"""Secure, Lazy file listing."""
 ⋮----
 full = (ROOT_DIR / path).resolve()
 ⋮----
@@ -866,7 +911,7 @@ Verified MCP server configuration used by the developer. It creates the best syn
 
 <file path="init.ps1">
 git add .
-git commit -m "Initial commit.............."
+git commit -m "Initial commit..............."
 git push -u origin main
 </file>
 

@@ -1,219 +1,171 @@
 ﻿import os
-import json
-import subprocess
+import asyncio
 import logging
-import sys
+import json
 from pathlib import Path
 from fastmcp import FastMCP
 from .valve import valve
 from .vault import manager
 
-# 1. 로깅 및 설정 폴더
+# 1. 설정 및 로깅 (기존 유지)
 CONFIG_DIR = Path.home() / ".gemini" / "antigravity"
-LOG_DIR = CONFIG_DIR
-try:
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-except:
-    pass
-
-LOG_FILE = LOG_DIR / "mcpv_debug.log"
+try: CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+except: pass
+LOG_FILE = CONFIG_DIR / "mcpv_debug.log"
 ROOT_PATH_FILE = CONFIG_DIR / "root_path.txt"
 
-# 기존 핸들러 제거
-root_logger = logging.getLogger()
-if root_logger.handlers:
-    for handler in root_logger.handlers:
-        root_logger.removeHandler(handler)
+logging.basicConfig(filename=str(LOG_FILE), level=logging.DEBUG, force=True, encoding="utf-8")
+logger = logging.getLogger("mcpv-router")
 
-logging.basicConfig(
-    filename=str(LOG_FILE),
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    encoding="utf-8",
-    force=True
-)
-logger = logging.getLogger("mcpv-server")
-
-# 2. 실행 위치 감지 및 [중요] CWD 변경
+# CWD 설정 (기존 유지)
 if ROOT_PATH_FILE.exists():
     try:
-        content = ROOT_PATH_FILE.read_text(encoding="utf-8").strip()
-        ROOT_DIR = Path(content).resolve()
-        source = "FILE(root_path.txt)"
-        
-        # [핵심 수정] 프로세스의 작업 디렉토리를 강제로 변경
-        os.chdir(ROOT_DIR)
-        logger.info(f"✅ Changed CWD to: {os.getcwd()}")
-        
-    except Exception as e:
-        ROOT_DIR = Path.cwd().resolve()
-        source = f"CWD(File Read Error: {e})"
-else:
-    ROOT_DIR = Path.cwd().resolve()
-    source = "CWD(File Not Found)"
-
-logger.info("="*40)
-logger.info(f"🚀 MCPV Server Started.")
-logger.info(f"📂 Project Root: {ROOT_DIR} (Source: {source})")
-logger.info(f"📂 Current Work Dir: {os.getcwd()}")
-logger.info("="*40)
-
-IGNORE_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build"}
-ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".md", ".json", ".txt", ".html", ".css", ".java", ".c", ".cpp", ".rs", ".go"}
+        os.chdir(Path(ROOT_PATH_FILE.read_text(encoding="utf-8").strip()).resolve())
+    except: pass
+ROOT_DIR = Path.cwd().resolve()
 
 mcp = FastMCP("mcpv", log_level="DEBUG")
 
-@mcp.tool()
-def get_vault_info() -> str:
-    """
-    [System Discovery] Returns a list of available upstream MCP servers in the Vault.
-    You MUST use these 'server_name's when calling 'use_upstream_tool'.
-    """
+# === 🌟 [핵심 1] 글로벌 툴 레지스트리 (지도) ===
+# 구조: { "tool_name": { "server": "server_name", "desc": "description...", "args": "arg1, arg2" } }
+TOOL_REGISTRY = {}
+
+async def _build_registry():
+    """모든 업스트림 서버를 스캔하여 도구 지도를 만듭니다."""
+    global TOOL_REGISTRY
     from .vault import BACKUP_FILE
     
-    if not BACKUP_FILE.exists():
-        return "Vault is empty. No upstream servers configured."
-        
-    try:
-        with open(BACKUP_FILE, "r", encoding="utf-8") as f:
-            config = json.load(f)
-            
-        servers = config.get("mcpServers", {})
-        if not servers:
-            return "Vault config exists but no servers found."
-            
-        report = ["=== 🛡️ Available MCP Servers in Vault ==="]
-        for name, cfg in servers.items():
-            status = "DISABLED" if cfg.get("disabled", False) else "ACTIVE"
-            cmd = cfg.get("command", "unknown")
-            report.append(f"- Server ID: '{name}' ({status})")
-            report.append(f"  Command: {cmd}")
-            
-        report.append("\n[Instruction]")
-        report.append("To use tools from these servers, use:")
-        report.append("use_upstream_tool(server_name='Server ID', tool_name='Tool Name', args={...})")
-        
-        return "\n".join(report)
-        
-    except Exception as e:
-        return f"Error reading vault info: {str(e)}"
-
-
-@mcp.tool()
-def get_initial_context(force: bool = False) -> str:
-    """[Smart Valve] Loads the codebase context via Repomix."""
-    logger.info(f"Function 'get_initial_context' called. force={force}")
+    if not BACKUP_FILE.exists(): return
     
+    with open(BACKUP_FILE, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    
+    active_servers = [k for k, v in config.get("mcpServers", {}).items() if not v.get("disabled")]
+    
+    # 병렬 연결 시도
+    tasks = [manager.get_session(name) for name in active_servers]
+    sessions = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    new_registry = {}
+    
+    for name, session in zip(active_servers, sessions):
+        if not session or isinstance(session, Exception): continue
+        try:
+            # 타임아웃을 두고 도구 목록 획득
+            tools = await asyncio.wait_for(session.list_tools(), timeout=3.0)
+            for t in tools.tools:
+                # 툴 이름 충돌 방지: 만약 이미 있으면 'server_toolname'으로 등록
+                key = t.name
+                if key in new_registry:
+                    key = f"{name}_{t.name}" # 충돌 시 접두사 붙임
+                
+                args = list(t.inputSchema.get("properties", {}).keys())
+                new_registry[key] = {
+                    "server": name,
+                    "real_name": t.name, # 실제 호출할 이름
+                    "desc": t.description[:100] if t.description else "No description",
+                    "args": ", ".join(args)
+                }
+        except:
+            continue
+            
+    TOOL_REGISTRY = new_registry
+    logger.info(f"🗺️ Tool Registry Built: {len(TOOL_REGISTRY)} tools found.")
+
+# === 🌟 [핵심 2] 스마트 컨텍스트 주입 ===
+@mcp.tool()
+async def get_initial_context(force: bool = False) -> str:
+    """
+    [System Start] Initializes the session.
+    Returns a 'Tool Manual' so you know what tools are available.
+    Does NOT return full code context to save tokens (use 'read_file' if needed).
+    """
+    # 1. 밸브 체크
     allowed, msg = valve.check(force)
-    logger.info(f"Valve check result: allowed={allowed}")
+    if not allowed: return msg
     
-    if not allowed:
-        return msg
+    # 2. 레지스트리 빌드 (서버 깨우기)
+    await _build_registry()
+    
+    if not TOOL_REGISTRY:
+        return "⚠️ No tools found in connected MCP servers."
 
-    # 2. [Added] Get MCP Server Info
-    # ---------------------------------------------------------
-    vault_info = "=== MCP Servers ===\nNo servers found."
-    try:
-        from .vault import BACKUP_FILE
-        if BACKUP_FILE.exists():
-            with open(BACKUP_FILE, "r", encoding="utf-8") as f:
-                srvs = json.load(f).get("mcpServers", {})
-                active_srvs = [k for k, v in srvs.items() if not v.get("disabled")]
-                vault_info = f"=== 🛡️ Active MCP Servers ===\n" + "\n".join([f"- {s}" for s in active_srvs])
-                vault_info += "\n(Use these names for 'use_upstream_tool')"
-    except:
-        pass
-    # ---------------------------------------------------------
+    # 3. 메뉴판(Manual) 생성
+    manual = [
+        "=== 🎮 MCPV SMART CONSOLE ===",
+        "You have access to the following tools. DO NOT use 'use_upstream_tool'.",
+        "JUST use 'run_tool(name=...)' directly.\n",
+        "--- Available Tools ---"
+    ]
+    
+    # 툴 목록을 예쁘게 정리
+    for tool_name, info in TOOL_REGISTRY.items():
+        manual.append(f"🔹 {tool_name}")
+        manual.append(f"   └─ Args: {info['args']}")
+        manual.append(f"   └─ Desc: {info['desc']}")
+    
+    manual.append("\n=== [Instruction] ===")
+    manual.append("To execute any tool above, use:")
+    manual.append("run_tool(tool_name='TOOL_NAME', args={...})")
+    manual.append("Example: run_tool(tool_name='query-docs', args={'query': 'nextjs'})")
+    
+    return "\n".join(manual)
 
-    try:
-        # CWD가 이미 변경되었으므로 명령어만 실행하면 됨
-        cmd = [
-            "npx", "-y", "repomix",
-            "--style", "xml",
-            "--compress",
-            "--remove-comments",
-            "--output", "stdout"
-        ]
-        
-        logger.info(f"▶️ Executing command: {' '.join(cmd)}")
-        logger.info(f"   in Directory: {os.getcwd()}") # ROOT_DIR과 동일해야 함
-        
-        env = os.environ.copy()
-        env["CI"] = "true"
-        
-        result = subprocess.run(
-            cmd,
-            cwd=ROOT_DIR, # 명시적으로 한 번 더 지정
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            shell=(os.name == 'nt'),
-            timeout=120,
-            env=env,
-            stdin=subprocess.DEVNULL 
-        )
-        
-        if result.returncode != 0:
-            err_msg = f"Repomix Error (Code {result.returncode}): {result.stderr}"
-            logger.error(err_msg)
-            return err_msg
-            
-        output_len = len(result.stdout)
-        logger.info(f"📝 Context fetched successfully! Length: {output_len} chars")
-
-        output = result.stdout
-        
-        # [Modified] Combine Vault Info
-        final_output = f"{vault_info}\n\n=== 📂 Project Context ===\n{output}\n=== End Vault ==="
-        
-        # Cache update
-        valve.update_cache(ROOT_DIR, final_output)
-        
-        return final_output
-        
-    except subprocess.TimeoutExpired:
-        logger.error("⏰ Repomix timed out.")
-        return "Error: Context fetching timed out."
-    except Exception as e:
-        logger.exception("❌ Unexpected error")
-        return f"Vault Error: {str(e)}"
-
+# === 🌟 [핵심 3] 통합 실행 도구 (Flattened Execution) ===
 @mcp.tool()
-async def use_upstream_tool(server_name: str, tool_name: str, args: dict = {}) -> str:
-    """Routes a command to a specific server in the vault."""
+async def run_tool(tool_name: str, args: dict = {}) -> str:
+    """
+    Executes ANY tool from the list provided in get_initial_context.
+    You don't need to know which server ID it belongs to.
+    """
+    # 레지스트리가 비어있으면(재시작 직후 등) 한 번 채움
+    if not TOOL_REGISTRY:
+        await _build_registry()
+        
+    info = TOOL_REGISTRY.get(tool_name)
+    if not info:
+        # 혹시 에이전트가 툴 이름을 정확히 모를 때 유사 검색 (간단히)
+        candidates = [k for k in TOOL_REGISTRY.keys() if tool_name in k]
+        if candidates:
+            return f"❌ Tool '{tool_name}' not found. Did you mean: {', '.join(candidates)}?"
+        return f"❌ Tool '{tool_name}' not found in Registry. Please call get_initial_context first."
+
+    server_name = info['server']
+    real_tool_name = info['real_name']
+    
     try:
-        # upstream 서버들도 이제 변경된 CWD(프로젝트 루트)에서 실행됩니다.
         session = await manager.get_session(server_name)
-        res = await session.call_tool(tool_name, args)
-        return "\n".join([c.text for c in res.content if c.type == "text"])
+        result = await session.call_tool(real_tool_name, args)
+        
+        # 결과 텍스트 추출
+        output = []
+        if hasattr(result, 'content'):
+            for c in result.content:
+                if c.type == "text": output.append(c.text)
+                else: output.append(f"[{c.type} content]")
+        return "\n".join(output) if output else "✅ Executed (No output)"
+        
     except Exception as e:
-        logger.error(f"Gateway Error: {e}")
-        return f"Gateway Error: {e}"
+        return f"❌ Execution Error ({server_name} -> {tool_name}): {e}"
+
+# --- 기존 필수 유틸리티 (파일 읽기 등) ---
+@mcp.tool()
+def read_file(path: str) -> str:
+    """Reads a file from the project root."""
+    try:
+        p = (ROOT_DIR / path).resolve()
+        if not str(p).startswith(str(ROOT_DIR)): return "⛔ Access Denied"
+        return p.read_text(encoding="utf-8", errors="replace")
+    except Exception as e: return str(e)
 
 @mcp.tool()
 def list_directory(path: str = ".") -> str:
-    logger.debug(f"list_directory called: {path}")
-    full = (ROOT_DIR / path).resolve()
-    if not str(full).startswith(str(ROOT_DIR)): return "⛔ Access Denied"
-    if not full.exists(): return "Not found"
-    
-    out = []
+    """Lists files in a directory."""
     try:
-        with os.scandir(full) as it:
+        p = (ROOT_DIR / path).resolve()
+        out = []
+        with os.scandir(p) as it:
             for e in it:
-                if e.name in IGNORE_DIRS or e.name.startswith("."): continue
-                if e.is_dir(): out.append(f"[DIR]  {e.name}/")
-                elif e.is_file() and Path(e.name).suffix in ALLOWED_EXTENSIONS: out.append(f"[FILE] {e.name}")
-    except Exception as e:
-        return str(e)
-    return "\n".join(sorted(out)) if out else "Empty"
-
-@mcp.tool()
-def read_file(path: str) -> str:
-    logger.debug(f"read_file called: {path}")
-    full = (ROOT_DIR / path).resolve()
-    if not str(full).startswith(str(ROOT_DIR)): return "⛔ Access Denied"
-    if full.suffix not in ALLOWED_EXTENSIONS: return f"⛔ File type {full.suffix} not allowed"
-    try: return full.read_text(encoding="utf-8", errors="replace")
-    except Exception as e:
-        return str(e)
+                if not e.name.startswith("."): out.append(e.name)
+        return "\n".join(out)
+    except Exception as e: return str(e)

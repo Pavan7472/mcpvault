@@ -37,55 +37,94 @@ class VaultManager:
 
     def install(self, force: bool = False):
         """1. MCP Config 하이재킹 및 경로 고정"""
-        success = self._hijack_config(force)
-        if success:
-            """2. 부스팅 스크립트 설치"""
-            self._install_booster()
-            print("✨ Installation & Path Lock Complete!")
+        print("🔧 Starting MCP Vault Installation...")
+        try:
+            success = self._hijack_config(force)
+            if success:
+                """2. 부스팅 스크립트 설치"""
+                self._install_booster()
+                print("\n✅ Installation & Path Lock Complete! You are ready to go.")
+            else:
+                print("\n⚠️ Installation skipped or failed during config setup.")
+        except Exception as e:
+            print(f"\n❌ FATAL: Unhandled installation error: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
 
     def _hijack_config(self, force: bool) -> bool:
+        # [Step 1] Config Directory Check
         if not CONFIG_DIR.exists():
             try:
                 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            except:
-                print(f"❌ Config dir creation failed at {CONFIG_DIR}", file=sys.stderr)
+            except PermissionError:
+                print(f"❌ PERMISSION DENIED: Cannot create config directory at '{CONFIG_DIR}'", file=sys.stderr)
+                print("   👉 Try running the command prompt as Administrator.", file=sys.stderr)
+                return False
+            except Exception as e:
+                print(f"❌ ERROR: Failed to create config dir: {e}", file=sys.stderr)
                 return False
 
+        # [Step 2] Config File Initialization
         if not CONFIG_FILE.exists():
-             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump({"mcpServers": {}}, f)
+             try:
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump({"mcpServers": {}}, f)
+             except Exception as e:
+                 print(f"❌ ERROR: Failed to initialize empty config file: {e}", file=sys.stderr)
+                 return False
 
+        # [Step 3] Read Existing Config
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f: config = json.load(f)
-        except:
-            config = {"mcpServers": {}}
+        except json.JSONDecodeError:
+            print(f"⚠️  WARNING: Corrupted config file found at '{CONFIG_FILE}'")
+            if force:
+                print("   👉 --force used. Overwriting corrupted config.")
+                config = {"mcpServers": {}}
+            else:
+                print("   👉 Fix the JSON syntax or use 'mcpv install --force' to reset it.", file=sys.stderr)
+                return False
+        except Exception as e:
+             print(f"❌ ERROR: Failed to read config file: {e}", file=sys.stderr)
+             return False
 
+        # [Step 4] Check for Conflicts
         servers = config.get("mcpServers", {})
         other_servers = {k: v for k, v in servers.items() if k != MY_SERVER_NAME}
 
         if other_servers and not force:
-            print(f"⚠️  Existing MCP servers found: {list(other_servers.keys())}", file=sys.stderr)
-            print("   Skipping installation. Use 'mcpv install --force' to override.", file=sys.stderr)
+            print(f"\n⚠️  EXISTING MCP SERVERS FOUND: {list(other_servers.keys())}", file=sys.stderr)
+            print("   To protect your existing setup, installation paused.", file=sys.stderr)
+            print("   👉 Use 'mcpv install --force' to override and backup existing config.", file=sys.stderr)
             return False
 
+        # [Step 5] Backup
         if other_servers:
-            with open(BACKUP_FILE, "w", encoding="utf-8") as f:
-                json.dump({"mcpServers": other_servers}, f, indent=2)
-            print(f"📦 Backup created at: {BACKUP_FILE}", file=sys.stderr)
+            try:
+                with open(BACKUP_FILE, "w", encoding="utf-8") as f:
+                    json.dump({"mcpServers": other_servers}, f, indent=2)
+                print(f"📦 Backup created at: {BACKUP_FILE}", file=sys.stderr)
+            except Exception as e:
+                print(f"⚠️  WARNING: Failed to create backup: {e}", file=sys.stderr)
 
-        # [핵심] 현재 경로 저장
+        # [Step 6] Lock Current Path (Project Root)
         current_python = sys.executable
         current_cwd = os.getcwd()
         
-        print(f"🔧 Locking Project Root to: {current_cwd}")
+        print(f"📍 Locking Project Root to: {current_cwd}")
         
         try:
             with open(ROOT_PATH_FILE, "w", encoding="utf-8") as f:
                 f.write(current_cwd)
-            print(f"📍 Root path saved to {ROOT_PATH_FILE}", file=sys.stderr)
+        except PermissionError:
+             print(f"❌ PERMISSION DENIED: Cannot save root path to '{ROOT_PATH_FILE}'", file=sys.stderr)
+             return False
         except Exception as e:
-            print(f"❌ Failed to save root path: {e}", file=sys.stderr)
+            print(f"❌ ERROR: Failed to save root path: {e}", file=sys.stderr)
+            # This is critical, but maybe we can proceed? No, better safe.
+            return False
 
+        # [Step 7] Write Final Config
         my_config = {
             "command": current_python,
             "args": ["-m", "mcpv", "start"],
@@ -96,20 +135,47 @@ class VaultManager:
             }
         }
         
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump({"mcpServers": {MY_SERVER_NAME: my_config}}, f, indent=2)
-            
-        print(f"🔒 Vault config updated.", file=sys.stderr)
-        return True
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"mcpServers": {MY_SERVER_NAME: my_config}}, f, indent=2)
+            print(f"🔒 Vault config updated successfully.", file=sys.stderr)
+            return True
+        except Exception as e:
+            print(f"❌ ERROR: Failed to write final config: {e}", file=sys.stderr)
+            return False
 
     def _install_booster(self):
         print("🚀 Installing Booster Script...", file=sys.stderr)
+        
         if not ANTIGRAVITY_PATH.exists():
-             print(f"⚠️  Antigravity path not found. Skipping booster.", file=sys.stderr)
+             print(f"\n⚠️  ANTIGRAVITY NOT FOUND", file=sys.stderr)
+             print(f"   Expected path: {ANTIGRAVITY_PATH}", file=sys.stderr)
+             print("   👉 Please install the Antigravity application first.", file=sys.stderr)
              return
 
         batch_content = f"""@echo off
 set __COMPAT_LAYER=RunAsInvoker
+
+:: [Admin Check]
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    echo.
+    echo ==============================================================================
+    echo [WARNING] Running as Administrator detected!
+    echo.
+    echo Antigravity running as Admin may cause UI glitches (broken drag-drop, etc).
+    echo It is recommended to run as a Standard User (via Explorer/Shortcut).
+    echo ==============================================================================
+    echo.
+    set /p OPEN_URL="Do you want to check the solution guide? (y/n): "
+    if /i "%OPEN_URL%"=="y" (
+        start https://github.com/thekeunpie-hash/mcpvault
+        echo.
+        echo Opening guide... Please review the instructions.
+        pause
+    )
+)
+
 cd /d "{ANTIGRAVITY_PATH}"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 26646 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; $env:Path = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0;' + [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User'); Start-Process -FilePath '.\\Antigravity.exe' -ArgumentList '--disable-gpu-driver-bug-workarounds --ignore-gpu-blacklist --enable-gpu-rasterization --enable-zero-copy --enable-native-gpu-memory-buffers' -WorkingDirectory '{ANTIGRAVITY_PATH}'"
 exit
@@ -118,6 +184,9 @@ exit
             with open(BOOSTER_SCRIPT, "w", encoding="utf-8") as f:
                 f.write(batch_content)
             self._create_shortcut_vbs(str(BOOSTER_SCRIPT), "Antigravity Boost (mcpv)", str(ANTIGRAVITY_EXE))
+            print("   -> Booster script created.", file=sys.stderr)
+        except PermissionError:
+            print(f"❌ PERMISSION DENIED: Cannot write booster script to '{BOOSTER_SCRIPT}'", file=sys.stderr)
         except Exception as e:
             print(f"⚠️  Booster installation failed: {e}", file=sys.stderr)
 

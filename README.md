@@ -145,3 +145,98 @@ Verified MCP server configuration used by the developer. It creates the best syn
     }
   }
 }
+
+<br>
+
+---
+
+
+<br>
+
+---
+
+## ❓ Troubleshooting & FAQ
+
+If you encounter issues, please check the specific solutions below.
+
+### 1. ❌ "Permission Denied" during Installation
+**Error Example:**
+> `❌ PERMISSION DENIED: Cannot create config directory`  
+> `❌ PERMISSION DENIED: Cannot save root path`
+
+**Solution:**
+Windows prevents regular users from writing to protected paths.
+1. Right-click your terminal (Command Prompt or PowerShell).
+2. Select **"Run as Administrator"**.
+3. Run `mcpv install` again.
+
+**Verification Command:**
+```powershell
+# Check if you have write access (should return 'True' if Admin)
+[bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).Groups -match "S-1-5-32-544")
+```
+
+<br>
+
+### 2. ⚠️ "Running as Administrator detected" (Booster Warning)
+**Warning Message:**
+> `[WARNING] Running as Administrator detected!`  
+> `Antigravity running as Admin may cause UI glitches...`
+
+**Solution:**
+- **Do NOT** run the booster script manually from an Admin terminal.
+- Use the **Desktop Shortcut** created by `mcpv` (`Antigravity Boost (mcpv)`).
+- If the shortcut still triggers the warning, right-click the shortcut → Properties → Compatibility → Uncheck "Run this program as an administrator".
+
+**Verification Command:**
+```powershell
+# If this returns a value, you are Admin (Try to run as Standard User instead)
+net session
+```
+
+<br>
+
+### 3. ⚠️ "Corrupted Config File"
+**Error Example:**
+> `⚠️ WARNING: Corrupted config file found`
+
+**Solution:**
+Your `mcp_config.json` file contains invalid JSON syntax.
+- **Option A (Reset)**: Run `mcpv install --force` to completely wipe and reset the configuration.
+- **Option B (Manual Fix)**: Open `%HOMEPATH%\.gemini\antigravity\mcp_config.json` and fix the syntax errors.
+
+<br>
+
+### 4. ⚠️ "Existing MCP Servers Found"
+**Message:**
+> `⚠️ EXISTING MCP SERVERS FOUND: ...`
+
+**Solution:**
+`mcpv` tries to protect your existing work.
+- Run `mcpv install --force` to proceed.
+- `mcpv` will automatically **backup** your old configuration to `mcp_config.original.json` before overwriting it.
+
+<br>
+
+### 5. ❌ "exec: npx: executable file not found"
+**Cause:**
+The Agent cannot find Node.js (`npx`) in your system PATH.
+
+**Solution:**
+1. Ensure **Node.js** is installed.
+2. **ALWAYS** start Antigravity using the **Booster Shortcut** (`Antigravity Boost (mcpv)`).
+   - The booster script automatically injects the correct PATH for `npx` before launching the application.
+
+**Verification Commands:**
+Run these in PowerShell to check your environment:
+```powershell
+# 1. Check Node.js version (Must be v18+)
+node -v
+
+# 2. Check NPM version
+npm -v
+
+# 3. Check if npx is in PATH
+Get-Command npx
+```
+If any of these fail, you must install **Node.js LTS** from [nodejs.org](https://nodejs.org).

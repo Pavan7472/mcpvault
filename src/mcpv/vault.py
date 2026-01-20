@@ -132,7 +132,8 @@ class VaultManager:
             "cwd": current_cwd,
             "env": {
                 "PYTHONUNBUFFERED": "1",
-                "PYTHONPATH": current_cwd
+                "PYTHONPATH": current_cwd,
+                "PYTHONHOME": sys.prefix
             }
         }
         
@@ -159,24 +160,25 @@ set __COMPAT_LAYER=RunAsInvoker
 
 :: [Admin Check]
 net session >nul 2>&1
-if %errorLevel% == 0 (
+if %errorLevel% NEQ 0 goto :LAUNCH
+
+echo.
+echo ==============================================================================
+echo [WARNING] Running as Administrator detected!
+echo.
+echo Antigravity running as Admin may cause UI glitches (broken drag-drop, etc).
+echo It is recommended to run as a Standard User (via Explorer/Shortcut).
+echo ==============================================================================
+echo.
+set /p OPEN_URL="Do you want to check the solution guide? (y/n): "
+if /i "%OPEN_URL%"=="y" (
+    start https://github.com/thekeunpie-hash/mcpvault
     echo.
-    echo ==============================================================================
-    echo [WARNING] Running as Administrator detected!
-    echo.
-    echo Antigravity running as Admin may cause UI glitches (broken drag-drop, etc).
-    echo It is recommended to run as a Standard User (via Explorer/Shortcut).
-    echo ==============================================================================
-    echo.
-    set /p OPEN_URL="Do you want to check the solution guide? (y/n): "
-    if /i "%OPEN_URL%"=="y" (
-        start https://github.com/thekeunpie-hash/mcpvault
-        echo.
-        echo Opening guide... Please review the instructions.
-        pause
-    )
+    echo Opening guide... Please review the instructions.
+    pause
 )
 
+:LAUNCH
 cd /d "{ANTIGRAVITY_PATH}"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 26646 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; $env:Path = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0;' + [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User'); Start-Process -FilePath '.\\Antigravity.exe' -ArgumentList '--disable-gpu-driver-bug-workarounds --ignore-gpu-blacklist --enable-gpu-rasterization --enable-zero-copy --enable-native-gpu-memory-buffers' -WorkingDirectory '{ANTIGRAVITY_PATH}'"
 exit
@@ -213,7 +215,7 @@ exit
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE
             )
-            )
+
         except Exception as e:
              # Try to decode stderr if possible
              err_msg = str(e)

